@@ -57,6 +57,10 @@ public:
     if (iter != parsed_options.end()) {
       pwarning(0, "new_style is enabled by default, so the option will be removed in the near future.\n");
     }
+    iter = parsed_options.find("utf8strings");
+    if (iter != parsed_options.end()) {
+      pwarning(0, "utf8strings is enabled by default, so the option will be removed in the near future.\n");
+    }
 
     gen_newstyle_ = true;
     iter = parsed_options.find("old_style");
@@ -117,8 +121,8 @@ public:
       throw "at most one of 'twisted' and 'tornado' are allowed";
     }
 
-    iter = parsed_options.find("utf8strings");
-    gen_utf8strings_ = (iter != parsed_options.end());
+    iter = parsed_options.find("no_utf8strings");
+    gen_utf8strings_ = (iter == parsed_options.end());
 
     iter = parsed_options.find("coding");
     if (iter != parsed_options.end()) {
@@ -435,7 +439,9 @@ string t_py_generator::py_autogen_comment() {
  * Prints standard thrift imports
  */
 string t_py_generator::py_imports() {
-  return string("from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplicationException");
+  return gen_utf8strings_
+    ? string("from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplicationException\nimport sys")
+    : string("from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplicationException");
 }
 
 /**
@@ -896,10 +902,10 @@ void t_py_generator::generate_py_struct_reader(ofstream& out, t_struct* tstruct)
 
   if (is_immutable(tstruct)) {
     indent(out)
-        << "return fastbinary.decode_binary(None, iprot.trans, (cls, cls.thrift_spec))"
+        << "return fastbinary.decode_binary(None, iprot.trans, (cls, cls.thrift_spec), iprot.string_length_limit, iprot.container_length_limit)"
         << endl;
   } else {
-    indent(out) << "fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))"
+    indent(out) << "fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec), iprot.string_length_limit, iprot.container_length_limit)"
                 << endl;
     indent(out) << "return" << endl;
   }
@@ -1518,7 +1524,7 @@ void t_py_generator::generate_service_remote(t_service* tservice) {
     py_autogen_comment() << endl <<
     "import sys" << endl <<
     "import pprint" << endl <<
-    "if sys.version_info[0] == 3:" << endl <<
+    "if sys.version_info[0] > 2:" << endl <<
     "  from urllib.parse import urlparse" << endl <<
     "else:" << endl <<
     "  from urlparse import urlparse" << endl <<
@@ -2038,7 +2044,7 @@ void t_py_generator::generate_deserialize_field(ofstream& out,
         } else if(!gen_utf8strings_) {
           out << "readString()";
         } else {
-          out << "readString().decode('utf-8')";
+          out << "readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()";
         }
         break;
       case t_base_type::TYPE_BOOL:
@@ -2226,7 +2232,7 @@ void t_py_generator::generate_serialize_field(ofstream& out, t_field* tfield, st
         } else if (!gen_utf8strings_) {
           out << "writeString(" << name << ")";
         } else {
-          out << "writeString(" << name << ".encode('utf-8'))";
+          out << "writeString(" << name << ".encode('utf-8') if sys.version_info[0] == 2 else " << name << ")";
         }
         break;
       case t_base_type::TYPE_BOOL:
@@ -2594,11 +2600,9 @@ string t_py_generator::type_to_spec_args(t_type* ttype) {
 THRIFT_REGISTER_GENERATOR(
     py,
     "Python",
-    "    new_style:       No effect. Kept for backward compatibility.\n"
-    "    old_style:       Deprecated. Generate old-style classes.\n"
     "    twisted:         Generate Twisted-friendly RPC services.\n"
     "    tornado:         Generate code for use with Tornado.\n"
-    "    utf8strings:     Encode/decode strings using utf8 in the generated code.\n"
+    "    no_utf8strings:  Do not Encode/decode strings using utf8 in the generated code. Basically no effect for Python 3.\n"
     "    coding=CODING:   Add file encoding declare in generated file.\n"
     "    slots:           Generate code using slots for instance members.\n"
     "    dynamic:         Generate dynamic code, less code generated but slower.\n"
@@ -2608,4 +2612,5 @@ THRIFT_REGISTER_GENERATOR(
     "    dynimport='from foo.bar import CLS'\n"
     "                     Add an import line to generated code to find the dynbase class.\n"
     "    package_prefix='top.package.'\n"
-    "                     Package prefix for generated files.\n")
+    "                     Package prefix for generated files.\n"
+    "    old_style:       Deprecated. Generate old-style classes.\n")

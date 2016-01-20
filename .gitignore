@@ -127,6 +127,7 @@ erl_crash.dump
 /lib/c_glib/test/testwrapper-test*
 /lib/c_glib/test/testapplicationexception
 /lib/c_glib/test/testbinaryprotocol
+/lib/c_glib/test/testcompactprotocol
 /lib/c_glib/test/testbufferedtransport
 /lib/c_glib/test/testcontainertest
 /lib/c_glib/test/testdebugproto
@@ -143,6 +144,7 @@ erl_crash.dump
 /lib/c_glib/thrift_c_glib.pc
 /lib/csharp/**/bin/
 /lib/csharp/**/obj/
+/lib/csharp/src/packages
 /lib/d/libthriftd.a
 /lib/d/test/serialization_benchmark
 /lib/d/test/transport_test
